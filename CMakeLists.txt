@@ -1,0 +1,128 @@
+cmake_minimum_required(VERSION 3.3)
+project(stego)
+include(ExternalProject)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC")
+
+add_executable(stego_enc src/encoder.c)
+add_executable(stego_dec src/decoder.c)
+
+set(STEGOLIB_DIR ${CMAKE_CURRENT_BINARY_DIR}/src/stegolib)
+set(STEGOLIBSRC_DIR ${CMAKE_SOURCE_DIR}/src/stegolib)
+add_subdirectory(src/stegolib)
+
+#set(FFMS2_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffms2)
+set(FFMPEG_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffmpeg)
+ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
+        BINARY_DIR ${FFMPEG_DIR}
+        SOURCE_DIR ${FFMPEG_DIR}
+        URL libs/ffmpeg
+        CONFIGURE_COMMAND
+            # Install step is very unreliable otherwise
+            mkdir -p ${FFMPEG_DIR}/include/stego &&
+            mkdir -p ${FFMPEG_DIR}/lib &&
+            cp ${STEGOLIBSRC_DIR}/stego_connector.h ${FFMPEG_DIR}/include/stego &&
+            cp ${STEGOLIB_DIR}/libstegolib.so ${FFMPEG_DIR}/lib &&
+            <SOURCE_DIR>/configure
+            --prefix=<BINARY_DIR>
+            --extra-cflags=-I<BINARY_DIR>/include
+            --extra-ldflags=-L<BINARY_DIR>/lib
+            --extra-libs=-lstegolib
+            --enable-gpl
+            --enable-nonfree
+            --enable-libfdk-aac
+            --disable-doc
+            --disable-pthreads
+            --enable-shared
+            --enable-static
+            --enable-runtime-cpudetect
+        BUILD_COMMAND make -j3
+        INSTALL_COMMAND make install
+)
+
+#ExternalProject_Add(
+#        ffms2_proj
+#        BINARY_DIR ${FFMS2_DIR}
+#        SOURCE_DIR ${FFMS2_DIR}
+#        URL libs/ffms2
+#        CONFIGURE_COMMAND ./configure --prefix=<BINARY_DIR> PKG_CONFIG_PATH=<BINARY_DIR>/lib/pkgconfig AVRESAMPLE_LIBS=-lswresample
+#        BUILD_COMMAND make
+#        INSTALL_COMMAND make install
+#)
+
+#set(X264_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/x264)
+#
+#ExternalProject_Add(
+#        libx264_proj
+#        BINARY_DIR ${X264_DIR}
+#        SOURCE_DIR ${X264_DIR}
+#        URL libs/x264
+#        CONFIGURE_COMMAND env PATH="<BINARY_DIR>/bin:$ENV{PATH}" ./configure
+#        --prefix=${FFMPEG_DIR}
+#        --extra-ldflags=-ljpeg\ -lpng\ -lm
+#        --enable-shared
+#        --enable-static
+#        BUILD_COMMAND env PATH="<BINARY_DIR>/bin:$ENV{PATH}" make -j3
+#        INSTALL_COMMAND make install
+#)
+
+add_library(libavcodec SHARED IMPORTED)
+add_library(libavformat SHARED IMPORTED)
+add_library(libavfilter SHARED IMPORTED)
+add_library(libavutil SHARED IMPORTED)
+add_library(libstegolib SHARED IMPORTED)
+#add_library(libx264 SHARED IMPORTED)
+
+ExternalProject_Get_Property(ffmpeg_proj BINARY_DIR)
+set_property(TARGET libavcodec PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libavcodec.so)
+set_property(TARGET libavformat PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libavformat.so)
+set_property(TARGET libavfilter PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libavfilter.so)
+set_property(TARGET libavutil PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libavutil.so)
+set_property(TARGET libstegolib PROPERTY IMPORTED_LOCATION ${STEGOLIB_DIR}/libstegolib.so)
+#ExternalProject_Get_Property(libx264_proj BINARY_DIR)
+#set_property(TARGET libx264 PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libx264.so)
+
+add_dependencies(libavcodec ffmpeg_proj)
+add_dependencies(libavformat ffmpeg_proj)
+add_dependencies(libavfilter ffmpeg_proj)
+add_dependencies(libavutil ffmpeg_proj)
+#add_dependencies(ffmpeg_proj libx264)
+
+#add_dependencies(ffms2_proj ffmpeg_proj)
+#add_dependencies(libx264_proj ffms2_proj)
+#add_dependencies(libx264 libx264_proj)
+
+add_dependencies(stego_enc libavcodec)
+add_dependencies(stego_enc libavformat)
+add_dependencies(stego_enc libavfilter)
+add_dependencies(stego_enc libavutil)
+add_dependencies(stego_enc libstegolib)
+add_dependencies(stego_dec libavcodec)
+add_dependencies(stego_dec libavformat)
+add_dependencies(stego_dec libavfilter)
+add_dependencies(stego_dec libavutil)
+add_dependencies(stego_dec libstegolib)
+#add_dependencies(stego libx264)
+
+ExternalProject_Get_Property(ffmpeg_proj SOURCE_DIR)
+include_directories(stego_enc ${SOURCE_DIR})
+include_directories(stego_dec ${SOURCE_DIR})
+#ExternalProject_Get_Property(libx264_proj SOURCE_DIR)
+#include_directories(stego ${SOURCE_DIR})
+
+target_link_libraries(stego_enc libavcodec)
+target_link_libraries(stego_enc libavformat)
+target_link_libraries(stego_enc libavfilter)
+target_link_libraries(stego_enc libavutil)
+target_link_libraries(stego_enc libstegolib)
+target_link_libraries(stego_dec libavcodec)
+target_link_libraries(stego_dec libavformat)
+target_link_libraries(stego_dec libavfilter)
+target_link_libraries(stego_dec libavutil)
+target_link_libraries(stego_dec libstegolib)
+#target_link_libraries(stego libx264)
+#target_link_libraries(stego m)
+#target_link_libraries(stego gpac)
+
+#add_subdirectory(libs/ffmpeg)
