@@ -31,4 +31,14 @@
 *.out
 *.app
 
+# Cmake file
+Makefile
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+ffmpeg_proj-prefix/
+
 sample_file/
+
+stego_enc
+stego_dec

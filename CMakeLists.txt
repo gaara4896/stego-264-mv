@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.3)
 project(stego)
 include(ExternalProject)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 
 add_executable(stego_enc src/encoder.c)
 add_executable(stego_dec src/decoder.c)
@@ -24,20 +24,21 @@ ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
             mkdir -p ${FFMPEG_DIR}/lib &&
             cp ${STEGOLIBSRC_DIR}/stego_connector.h ${FFMPEG_DIR}/include/stego &&
             cp ${STEGOLIB_DIR}/libstegolib.so ${FFMPEG_DIR}/lib &&
-            <SOURCE_DIR>/configure
+            env LD_PRELOAD=${STEGOLIB_DIR}/libstegolib.so <SOURCE_DIR>/configure
             --prefix=<BINARY_DIR>
             --extra-cflags=-I<BINARY_DIR>/include
             --extra-ldflags=-L<BINARY_DIR>/lib
             --extra-libs=-lstegolib
             --enable-gpl
             --enable-nonfree
-            --enable-libfdk-aac
+            # --enable-libfdk-aac
             --disable-doc
-            --disable-pthreads
+            # --disable-pthreads
+            --disable-programs
             --enable-shared
             --enable-static
             --enable-runtime-cpudetect
-        BUILD_COMMAND make -j3
+        BUILD_COMMAND make
         INSTALL_COMMAND make install
 )
 
