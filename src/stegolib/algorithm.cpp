@@ -7,20 +7,24 @@
 
 #include "algorithm.h"
 #include "algo/HideSeek.h"
+#include "algo/RandomisedHideSeek.h"
 
 void Algorithm::initAsEncoder(stego_params *params) {
     datafile.open(params->filename, std::ios::in | std::ios::binary);
     flags = params->flags;
+    encoder = true;
 }
 
 void Algorithm::initAsDecoder(stego_params *params) {
     datafile.open(params->filename, std::ios::out | std::ios::binary);
     flags = params->flags;
+    encoder = false;
 }
 
 stego_result Algorithm::finalise() {
+    datafile.close();
     return stego_result {
-            bits_processed / 8,
+            uint(bits_processed / 8),
             0, NULL
     };
 }
@@ -34,12 +38,14 @@ void stego_decode(int16_t (*mvs[2])[2], int mv_sample_log2, int mb_width, int mb
 }
 
 void stego_init_algorithm(const char *algname) {
-    if(algorithm != nullptr) {
+    if (algorithm != nullptr) {
         delete algorithm;
     }
 
-    if(std::strcmp(algname, "hidenseek") == 0) {
+    if (std::strcmp(algname, "hidenseek") == 0) {
         algorithm = new HideSeek();
+    } else if (std::strcmp(algname, "rand-hidenseek") == 0) {
+        algorithm = new RandomisedHideSeek();
     }
 }
 

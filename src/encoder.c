@@ -580,20 +580,21 @@ int run_embedding(char** argv) {
 }
 
 int is_single_pass(const char* algorithm) {
-    return 0;
+    return 1;
 }
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <input file> <datafile> <output file>\n", argv[0]);
+    if (argc < 4) {
+        fprintf(stderr, "Usage: %s <input file> <datafile> <output file> ...other params...\n", argv[0]);
         return 1;
     }
 
     // Get some information about the file.
     struct stat datafileinfo;
     stat(argv[2], &datafileinfo);
+    int capacity = 0;
 
-    const char* algorithm = "hidenseek";
+    const char* algorithm = "rand-hideseek";
     int singlepass = is_single_pass(algorithm);
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
     if(!singlepass) {
@@ -612,22 +613,25 @@ int main(int argc, char **argv) {
         av_log(NULL, AV_LOG_INFO, "Analysed. Embedding capacity is %d byte(s)\n", result.bytes_processed);
         if(!fits) {
             av_log(NULL, AV_LOG_INFO, "File can't be embedded fully, video's capacity is %d byte(s) short"
-                    "this algorithm. Terminating.", (int)datafileinfo.st_size - result.bytes_processed);
+                    "using this algorithm. Terminating.\n", (int)datafileinfo.st_size - result.bytes_processed);
             return 1;
         }
+        capacity = result.bytes_processed;
     }
 
     stego_init_algorithm(algorithm);
+    int algparams[2] = { 0, capacity };
     stego_params p = {
-            argv[2], STEGO_NO_PARAMS, NULL
+            argv[2], STEGO_NO_PARAMS, algparams
     };
     stego_init_encoder(&p);
 
-    av_log(NULL, AV_LOG_INFO, "Embedding...");
+    av_log(NULL, AV_LOG_INFO, "Embedding...\n");
 
     int ret = run_embedding(argv);
     if(ret != 0) return ret;
 
+    stego_result res = stego_finalise();
     av_log(NULL, AV_LOG_INFO, "Finished.");
-    return 0;
+    return res.error;
 }

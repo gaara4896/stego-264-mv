@@ -3,7 +3,6 @@
 //
 
 #include "HideSeek.h"
-#include "../stego_connector.h"
 
 HideSeek::HideSeek() {}
 

@@ -24,7 +24,7 @@ typedef struct {
 } stego_params;
 
 typedef struct {
-    int bytes_processed;
+    unsigned int bytes_processed;
     int error;
     const char* errorMsg;
 } stego_result;

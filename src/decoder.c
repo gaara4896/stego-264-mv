@@ -119,9 +119,10 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    stego_init_algorithm("hidenseek");
+    stego_init_algorithm("rand-hideseek");
+    int algparams[3] = {0, 1735744, 107};
     stego_params p = {
-        argv[2], STEGO_NO_PARAMS, NULL
+        argv[2], STEGO_NO_PARAMS, algparams
     };
     stego_init_decoder(&p);
 
@@ -159,8 +160,6 @@ int main(int argc, char **argv) {
         goto end;
     }
 
-    printf("framenum,source,blockw,blockh,srcx,srcy,dstx,dsty,flags\n");
-
     /* initialize packet, set data to NULL, let the demuxer fill it */
     av_init_packet(&pkt);
     pkt.data = NULL;
@@ -190,5 +189,9 @@ int main(int argc, char **argv) {
     avcodec_close(video_dec_ctx);
     avformat_close_input(&fmt_ctx);
     av_frame_free(&frame);
-    return ret < 0;
+    if (ret < 0) return ret;
+
+    stego_result res = stego_finalise();
+
+    return res.error;
 }
