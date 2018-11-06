@@ -31,14 +31,14 @@ ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
             --extra-libs=-lstegolib
             --enable-gpl
             --enable-nonfree
-            # --enable-libfdk-aac
+            --enable-libfdk-aac
             --disable-doc
             # --disable-pthreads
             --disable-programs
             --enable-shared
             --enable-static
             --enable-runtime-cpudetect
-        BUILD_COMMAND make
+        BUILD_COMMAND make -j
         INSTALL_COMMAND make install
 )
 
