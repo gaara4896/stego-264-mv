@@ -40,6 +40,8 @@
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 
+#include <sys/stat.h>
+
 #include "stegolib/stego_connector.h"
 
 static AVFormatContext *ifmt_ctx;
@@ -51,8 +53,7 @@ typedef struct FilteringContext {
 } FilteringContext;
 static FilteringContext *filter_ctx;
 
-static int open_input_file(const char *filename)
-{
+static int open_input_file(const char *filename) {
     int ret;
     unsigned int i;
 
@@ -89,8 +90,7 @@ static int open_input_file(const char *filename)
     return 0;
 }
 
-static int open_output_file(const char *filename)
-{
+static int open_output_file(const char *filename) {
     AVStream *out_stream;
     AVStream *in_stream;
     AVCodecContext *dec_ctx, *enc_ctx;
@@ -190,8 +190,7 @@ static int open_output_file(const char *filename)
 }
 
 static int init_filter(FilteringContext* fctx, AVCodecContext *dec_ctx,
-                       AVCodecContext *enc_ctx, const char *filter_spec)
-{
+                       AVCodecContext *enc_ctx, const char *filter_spec) {
     char args[512];
     int ret = 0;
     AVFilter *buffersrc = NULL;
@@ -338,8 +337,7 @@ static int init_filter(FilteringContext* fctx, AVCodecContext *dec_ctx,
     return ret;
 }
 
-static int init_filters(void)
-{
+static int init_filters(void) {
     const char *filter_spec;
     unsigned int i;
     int ret;
@@ -404,8 +402,7 @@ static int encode_write_frame(AVFrame *filt_frame, unsigned int stream_index, in
     return ret;
 }
 
-static int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index)
-{
+static int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index) {
     int ret;
     AVFrame *filt_frame;
 
@@ -448,8 +445,7 @@ static int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index)
     return ret;
 }
 
-static int flush_encoder(unsigned int stream_index)
-{
+static int flush_encoder(unsigned int stream_index) {
     int ret;
     int got_frame;
 
@@ -468,24 +464,15 @@ static int flush_encoder(unsigned int stream_index)
     return ret;
 }
 
-int main(int argc, char **argv)
-{
+int run_embedding(char** argv) {
     int ret;
     AVPacket packet = { .data = NULL, .size = 0 };
     AVFrame *frame = NULL;
     enum AVMediaType type;
-    unsigned int stream_index;
+    int stream_index;
     unsigned int i;
     int got_frame;
     int (*dec_func)(AVCodecContext *, AVFrame *, int *, const AVPacket *);
-
-    if (argc != 4) {
-        av_log(NULL, AV_LOG_ERROR, "Usage: %s <input file> <datafile> <output file>\n", argv[0]);
-        return 1;
-    }
-
-    stego_init_algorithm("hidenseek");
-    stego_init_encoder(argv[2]);
 
     av_register_all();
     avfilter_register_all();
@@ -588,4 +575,57 @@ int main(int argc, char **argv)
         av_log(NULL, AV_LOG_ERROR, "Error occurred: %s\n", av_err2str(ret));
 
     return ret ? 1 : 0;
+}
+
+int is_single_pass(const char* algorithm) {
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <input file> <datafile> <output file>\n", argv[0]);
+        return 1;
+    }
+
+    // Get some information about the file.
+    struct stat datafileinfo;
+    stat(argv[2], &datafileinfo);
+
+    const char* algorithm = "hidenseek";
+    int singlepass = is_single_pass(algorithm);
+    // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
+    if(!singlepass) {
+        stego_init_algorithm(algorithm);
+        stego_params p = {
+                argv[2], STEGO_DUMMY_PASS, NULL
+        };
+        stego_init_encoder(&p);
+        av_log(NULL, AV_LOG_INFO, "Analysing the video for embedding capacity...\n");
+
+        int ret = run_embedding(argv);
+        if(ret != 0) return ret;
+
+        stego_result result = stego_finalise();
+        int fits = datafileinfo.st_size <= result.bytes_processed;
+        av_log(NULL, AV_LOG_INFO, "Analysed. Embedding capacity is %d byte(s)\n", result.bytes_processed);
+        if(!fits) {
+            av_log(NULL, AV_LOG_INFO, "File can't be embedded fully, video's capacity is %d byte(s) short"
+                    "this algorithm. Terminating.", (int)datafileinfo.st_size - result.bytes_processed);
+            return 1;
+        }
+    }
+
+    stego_init_algorithm(algorithm);
+    stego_params p = {
+            argv[2], STEGO_NO_PARAMS, NULL
+    };
+    stego_init_encoder(&p);
+
+    av_log(NULL, AV_LOG_INFO, "Embedding...");
+
+    int ret = run_embedding(argv);
+    if(ret != 0) return ret;
+
+    av_log(NULL, AV_LOG_INFO, "Finished.");
+    return 0;
 }

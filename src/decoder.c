@@ -39,8 +39,7 @@ static AVFrame *frame = NULL;
 static AVPacket pkt;
 static int video_frame_count = 0;
 
-static int decode_packet(int *got_frame, int cached)
-{
+static int decode_packet(int *got_frame, int cached) {
     int decoded = pkt.size;
 
     *got_frame = 0;
@@ -75,8 +74,7 @@ static int decode_packet(int *got_frame, int cached)
 }
 
 static int open_codec_context(int *stream_idx,
-                              AVFormatContext *fmt_ctx, enum AVMediaType type)
-{
+                              AVFormatContext *fmt_ctx, enum AVMediaType type) {
     int ret;
     AVStream *st;
     AVCodecContext *dec_ctx = NULL;
@@ -113,8 +111,7 @@ static int open_codec_context(int *stream_idx,
     return 0;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     int ret = 0, got_frame;
 
     if (argc != 3) {
@@ -123,7 +120,10 @@ int main(int argc, char **argv)
     }
 
     stego_init_algorithm("hidenseek");
-    stego_init_decoder(argv[2]);
+    stego_params p = {
+        argv[2], STEGO_NO_PARAMS, NULL
+    };
+    stego_init_decoder(&p);
 
     src_filename = argv[1];
 
