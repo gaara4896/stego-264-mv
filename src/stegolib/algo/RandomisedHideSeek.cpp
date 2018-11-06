@@ -7,8 +7,6 @@
 #include <algorithm>
 #include <iostream>
 
-RandomisedHideSeek::RandomisedHideSeek() {}
-
 void RandomisedHideSeek::initAsEncoder(stego_params *params) {
     Algorithm::initAsEncoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
@@ -51,19 +49,6 @@ void RandomisedHideSeek::initialiseMapping(const stego_params *params, int fileS
     std::sort(bitToMvMapping, bitToMvMapping + 8*fileSize);
 }
 
-void RandomisedHideSeek::encode(int16_t (*mvs)[2], uint16_t *mb_type, int mb_width, int mb_height, int mv_stride) {
-    for (int mb_y = 1; mb_y < mb_height; ++mb_y) {
-        for (int mb_x = 1; mb_x < mb_width; ++mb_x) {
-            int xy = mb_y * mv_stride + mb_x;
-            if (mb_type[xy] != 1) {
-                for(int comp = 0; comp < 2; ++comp) {
-                    embedIntoMv(&mvs[xy][comp]);
-                }
-            }
-        }
-    }
-}
-
 void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
     if(flags & STEGO_DUMMY_PASS) {
         if(*mv != 0 && *mv != 1) {
@@ -72,9 +57,9 @@ void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
     } else {
         if(index >= 8*fileSize) return;
         if(*mv != 0 && *mv != 1) {
-            if (bits_processed == bitToMvMapping[index].s) {
+            if (bits_processed == bitToMvMapping[index].mv) {
                 // We found a MV that's next on a list to be modified.
-                ulong dataBit = bitToMvMapping[index].f;
+                ulong dataBit = bitToMvMapping[index].bit;
                 int bit = data[dataBit / 8] >> (dataBit % 8);
 
                 if((bit & 1) && !(*mv & 1)) (*mv)++;
@@ -88,29 +73,17 @@ void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
     }
 }
 
-void RandomisedHideSeek::decode(int16_t (*mvs[2])[2], int mv_sample_log2, int mb_width, int mb_height, int mv_stride) {
-    for (int mb_y = 1; mb_y < mb_height; mb_y++) {
-        for (int mb_x = 1; mb_x < mb_width; mb_x++) {
-            int xy = (mb_x + mb_y * mv_stride) << mv_sample_log2;
-            for(int comp = 0; comp < 2; ++comp) {
-                extractFromMv(mvs[0][xy][comp]);
-            }
-        }
-    }
-}
-
 void RandomisedHideSeek::extractFromMv(int16_t val) {
     if(index >= 8*fileSize) return;
     if (val != 0 && val != 1) {
-        if (bits_processed == bitToMvMapping[index].s) {
+        if (bits_processed == bitToMvMapping[index].mv) {
             // We found a MV that was next on a list to be modified.
-            ulong dataBit = bitToMvMapping[index].f;
+            ulong dataBit = bitToMvMapping[index].bit;
             data[dataBit / 8] |= (val & 1) << (dataBit % 8);
             index++;
         }
 
         bits_processed++;
-        std::cout << val << std::endl;
     }
 }
 
