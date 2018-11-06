@@ -1,7 +1,3 @@
-//
-// Created by el398 on 08/12/15.
-//
-
 /*
  * Copyright (c) 2010 Nicolas George
  * Copyright (c) 2011 Stefano Sabatini
@@ -580,7 +576,8 @@ int run_embedding(char** argv) {
 }
 
 int is_single_pass(const char* algorithm) {
-    return 0;
+    if(strcmp(algorithm, "rand-hidenseek") == 0) return 0;
+    return 1;
 }
 
 int main(int argc, char **argv) {

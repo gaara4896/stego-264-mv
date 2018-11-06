@@ -1,0 +1,13 @@
+diff --git a/libavcodec/mpegvideo.c b/libavcodec/mpegvideo.c
+index 04953292a9..e6a86589ee 100644
+--- a/libavcodec/mpegvideo.c
++++ b/libavcodec/mpegvideo.c
+@@ -1588,7 +1588,7 @@ void ff_print_debug_info2(AVCodecContext *avctx, AVFrame *pict, uint8_t *mbskip_
+         int mb_x, mb_y, mbcount = 0;
+ 
+         if(pict->pict_type == AV_PICTURE_TYPE_P) {
+-            stego_decode(motion_val, mv_sample_log2, mb_width, mb_height, mv_stride);
++            stego_decode(motion_val, mbtype_table, mv_sample_log2, mb_width, mb_height, mv_stride, mb_stride);
+         }
+ 
+         /* size is width * height * 2 * 4 where 2 is for directions and 4 is

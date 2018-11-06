@@ -1,7 +1,3 @@
-//
-// Created by el398 on 06/12/15.
-//
-
 #ifndef STEGO_CONNECTOR_H
 #define STEGO_CONNECTOR_H
 
@@ -26,7 +22,6 @@ typedef struct {
 typedef struct {
     unsigned int bytes_processed;
     int error;
-    const char* errorMsg;
 } stego_result;
 
 void stego_init_encoder(stego_params *params);
@@ -34,7 +29,8 @@ void stego_init_decoder(stego_params *params);
 void stego_init_algorithm(const char *algname);
 stego_result stego_finalise();
 void stego_encode(int16_t (*mvs)[2], uint16_t *mb_type, int mb_width, int mb_height, int mv_stride);
-void stego_decode(int16_t (*mvs[2])[2], int mv_sample_log2, int mb_width, int mb_height, int mv_stride);
+void stego_decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample_log2, int mb_width, int mb_height, int mv_stride,
+                   int mb_stride);
 
 #ifdef __cplusplus
 }

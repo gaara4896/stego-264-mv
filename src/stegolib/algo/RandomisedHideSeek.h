@@ -1,7 +1,3 @@
-//
-// Created by el398 on 10/12/15.
-//
-
 #ifndef STEGO_RANDOMISEDHIDESEEK_H
 #define STEGO_RANDOMISEDHIDESEEK_H
 
@@ -34,7 +30,7 @@ private:
     char *data;
     Pair *bitToMvMapping;
 
-    void initialiseMapping(const stego_params *params, int fileSize);
+    void initialiseMapping(const stego_params *params, uint fileSize);
 };
 
 

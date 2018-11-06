@@ -1,7 +1,3 @@
-//
-// Created by el398 on 08/12/15.
-//
-
 /*
  * Copyright (c) 2012 Stefano Sabatini
  * Copyright (c) 2014 Clément Bœsch
@@ -120,7 +116,7 @@ int main(int argc, char **argv) {
     }
 
     stego_init_algorithm("rand-hideseek");
-    int algparams[3] = {0, 1735744, 107};
+    int algparams[3] = {0, 183559, 183559};
     stego_params p = {
         argv[2], STEGO_NO_PARAMS, algparams
     };
