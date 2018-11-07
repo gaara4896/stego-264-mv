@@ -1,3 +1,6 @@
 [submodule "libs/ffmpeg"]
 	path = libs/ffmpeg
 	url = git@github.com:gaara4896/ffmpeg-mirror.git
+[submodule "libs/rscode"]
+	path = libs/rscode
+	url = git@github.com:gaara4896/rscode-mirror.git

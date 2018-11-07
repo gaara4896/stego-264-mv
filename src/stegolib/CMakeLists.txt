@@ -2,18 +2,38 @@ cmake_minimum_required(VERSION 3.3)
 project(stegolib)
 include(ExternalProject)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 
 file(GLOB_RECURSE SOURCE_FILES
     "*.h"
     "*.cpp"
 )
 
+link_directories(${EP_INSTALL}/lib)
+include_directories(${EP_INSTALL}/include)
 add_library(stegolib SHARED ${SOURCE_FILES})
 
+install(TARGETS stegolib
+        LIBRARY DESTINATION lib)
 install(FILES stego_connector.h DESTINATION include/stego)
-install(TARGETS stegolib DESTINATION lib)
+
+set(RSCODE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../../libs/rscode)
+ExternalProject_Add(
+        rscode_proj
+        BINARY_DIR ${RSCODE_DIR}
+        SOURCE_DIR ${RSCODE_DIR}
+        INSTALL_DIR ${EP_INSTALL}
+        CMAKE_ARGS
+            -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+)
+
+add_library(librscode STATIC IMPORTED)
+set_property(TARGET librscode PROPERTY IMPORTED_LOCATION ${EP_INSTALL}/lib/librscode.a)
+add_dependencies(librscode rscode_proj)
+add_dependencies(stegolib librscode)
+target_link_libraries(stegolib librscode)
 
 #set(FFMPEG_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffmpeg)
 #set(FFMS2_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffms2)

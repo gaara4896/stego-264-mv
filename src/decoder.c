@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     }
 
     stego_init_algorithm("rand-hideseek");
-    int algparams[3] = {0, 183559, 183559};
+    int algparams[3] = {0, 2337555, 12000};
     stego_params p = {
         argv[2], STEGO_NO_PARAMS, algparams
     };
@@ -188,6 +188,7 @@ int main(int argc, char **argv) {
     if (ret < 0) return ret;
 
     stego_result res = stego_finalise();
+    fprintf(stderr, "Bytes processed: %d\n", res.bytes_processed);
 
     return res.error;
 }
