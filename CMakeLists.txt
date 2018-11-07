@@ -38,7 +38,7 @@ ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
             --enable-shared
             --enable-static
             --enable-runtime-cpudetect
-        BUILD_COMMAND make -j
+        BUILD_COMMAND make -j$(nproc)
         INSTALL_COMMAND make install
 )
 

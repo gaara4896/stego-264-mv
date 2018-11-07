@@ -19,7 +19,6 @@ void RandomisedHideSeek::initAsEncoder(stego_params *params) {
         initialiseMapping(params, fileSize);
         data = new char[fileSize];
         datafile.read(data, fileSize);
-        initialiseMapping(params, fileSize);
     }
 }
 
@@ -27,8 +26,8 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
     Algorithm::initAsDecoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
         fileSize = static_cast<uint*>(params->algParams)[2];
-        data = new char[fileSize]();
         initialiseMapping(params, fileSize);
+        data = new char[fileSize]();
     }
 }
 
@@ -63,12 +62,12 @@ void RandomisedHideSeek::initialiseMapping(const stego_params *params, uint file
 
 void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
     if(flags & STEGO_DUMMY_PASS) {
-        if(*mv != 0 && *mv != 1) {
+        if(true /* *mv != 0 && *mv != 1 */) {
             bits_processed++;
         }
     } else {
         if(index >= 8*fileSize) return;
-        if(*mv != 0 && *mv != 1) {
+        if(true /* *mv != 0 && *mv != 1 */) {
             if (bits_processed == bitToMvMapping[index].mv) {
                 // We found a MV that's next on a list to be modified.
                 ulong dataBit = bitToMvMapping[index].bit;
@@ -79,15 +78,14 @@ void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
 
                 index++;
             }
-            bits_processed++;
-            std::cout << *mv << std::endl;
         }
+        bits_processed++;
     }
 }
 
 void RandomisedHideSeek::extractFromMv(int16_t val) {
     if(index >= 8*fileSize) return;
-    if (val != 0 && val != 1) {
+    if (true /* val != 0 && val != 1 */) {
         if (bits_processed == bitToMvMapping[index].mv) {
             // We found a MV that was next on a list to be modified.
             ulong dataBit = bitToMvMapping[index].bit;
