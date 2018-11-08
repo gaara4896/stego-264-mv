@@ -115,8 +115,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    stego_init_algorithm("rand-hideseek");
-    int algparams[3] = {0, 2337555, 12000};
+    stego_init_algorithm("hidenseek");
+    int algparams[3] = {0, 545755, 11};
     stego_params p = {
         argv[2], STEGO_NO_PARAMS, algparams
     };

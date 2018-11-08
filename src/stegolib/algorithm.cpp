@@ -49,11 +49,9 @@ void stego_init_algorithm(const char *algname) {
         algorithm = new HideSeek();
     } else if (std::strcmp(algname, "rand-hidenseek") == 0) {
         algorithm = new RandomisedHideSeek();
-    }
-    else if (std::strcmp(algname, "dumpmvs") == 0) {
+    } else if (std::strcmp(algname, "dumpmvs") == 0) {
         algorithm = new DumpMVs();
-    }
-    else if (std::strcmp(algname, "mvsteg") == 0) {
+    } else if (std::strcmp(algname, "mvsteg") == 0) {
         algorithm = new MVSteg();
     }
 }

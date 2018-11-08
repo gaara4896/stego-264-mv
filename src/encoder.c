@@ -116,6 +116,7 @@ static int open_output_file(const char *filename) {
         if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
             || dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
             /* in this example, we choose transcoding to same codec */
+            fprintf(stderr, "encoder id is %d\n", dec_ctx->codec_id);
             encoder = avcodec_find_encoder(dec_ctx->codec_id);
             if (!encoder) {
                 av_log(NULL, AV_LOG_FATAL, "Necessary encoder not found\n");
@@ -167,7 +168,7 @@ static int open_output_file(const char *filename) {
             enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     }
-    av_dump_format(ofmt_ctx, 0, filename, 1);
+    // av_dump_format(ofmt_ctx, 0, filename, 1);
 
     if (!(ofmt_ctx->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&ofmt_ctx->pb, filename, AVIO_FLAG_WRITE);
@@ -591,7 +592,7 @@ int main(int argc, char **argv) {
     stat(argv[2], &datafileinfo);
     int capacity = 0;
 
-    const char* algorithm = "rand-hideseek";
+    const char* algorithm = "hidenseek";
     int singlepass = is_single_pass(algorithm);
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
     if(!singlepass) {
@@ -629,6 +630,7 @@ int main(int argc, char **argv) {
     if(ret != 0) return ret;
 
     stego_result res = stego_finalise();
-    av_log(NULL, AV_LOG_INFO, "Finished.");
+    av_log(NULL, AV_LOG_INFO, "Bytes processed: %d\n", res.bytes_processed);
+    av_log(NULL, AV_LOG_INFO, "Finished.\n");
     return res.error;
 }
