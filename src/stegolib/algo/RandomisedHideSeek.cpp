@@ -45,7 +45,7 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
     Algorithm::initAsDecoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
         initialize_ecc();
-        fileSize = static_cast<uint*>(params->algParams)[2];
+        fileSize = static_cast<AlgOptions*>(params->algParams)->fileSize;
         
         // Total size of embedded data:
         // fileSize + NPAR parity bytes for every (BLOCKSIZE - NPAR) bytes of the file
@@ -60,12 +60,14 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
 
 void RandomisedHideSeek::initialiseMapping(const stego_params *params, uint dataSize) {
     // Build a mapping from a data bit to the particular MV
-    uint seed = static_cast<uint*>(params->algParams)[0];
-    uint capacity = static_cast<uint*>(params->algParams)[1];
+    AlgOptions *opt = static_cast<AlgOptions*>(params->algParams);
+    uint64_t capacity =opt->byteCapacity;
 
     assert(encoder || dataSize <= capacity);
 
+    std::seed_seq seed(opt->seed, opt->seedEnd);
     std::default_random_engine rng(seed);
+
     ulong bitCapacity = ((ulong) capacity) * 8;
     std::uniform_int_distribution<ulong> dist(0, bitCapacity);
     ulong bitDataSize = ((ulong) dataSize) * 8;

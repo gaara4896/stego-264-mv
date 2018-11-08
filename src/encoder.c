@@ -37,7 +37,9 @@
 #include <libavutil/pixdesc.h>
 
 #include <sys/stat.h>
+#include <getopt.h>
 
+#include <stdbool.h>
 #include "stegolib/stego_connector.h"
 
 static AVFormatContext *ifmt_ctx;
@@ -463,7 +465,7 @@ static int flush_encoder(unsigned int stream_index) {
     return ret;
 }
 
-int run_embedding(char** argv) {
+int run_embedding(char *input_file, char *output_file) {
     int ret;
     AVPacket packet = { .data = NULL, .size = 0 };
     AVFrame *frame = NULL;
@@ -476,9 +478,9 @@ int run_embedding(char** argv) {
     av_register_all();
     avfilter_register_all();
 
-    if ((ret = open_input_file(argv[1])) < 0)
+    if ((ret = open_input_file(input_file)) < 0)
         goto end;
-    if ((ret = open_output_file(argv[3])) < 0)
+    if ((ret = open_output_file(output_file)) < 0)
         goto end;
     if ((ret = init_filters()) < 0)
         goto end;
@@ -576,39 +578,114 @@ int run_embedding(char** argv) {
     return ret ? 1 : 0;
 }
 
-int is_single_pass(const char* algorithm) {
-    if(strcmp(algorithm, "rand-hidenseek") == 0) return 0;
-    return 1;
+bool is_supported_algorithm(const char *algname) {
+    return strcmp(algname, "hidenseek") == 0 
+        || strcmp(algname, "rand-hidenseek") == 0 
+        || strcmp(algname, "dumpmvs") == 0 
+        || strcmp(algname, "mvsteg") == 0;
+}
+
+bool is_single_pass(const char* algorithm) {
+    return strcmp(algorithm, "rand-hidenseek") != 0;
 }
 
 int main(int argc, char **argv) {
-    if (argc < 4) {
-        fprintf(stderr, "Usage: %s <input file> <datafile> <output file> ...other params...\n", argv[0]);
+    char* algorithm = NULL;
+    char* data_file = NULL;
+    char* seed = "\0\0\0\0";
+    static struct option long_options[] =
+        {
+            {"algorithm", required_argument, 0, 'a'},
+            {"data", required_argument, 0, 'd'},
+            {"seed", required_argument, 0, 's'},
+            {"help", no_argument, 0, 'h'}
+        };
+
+    int option_index = -1, c;
+    while((c = getopt_long(argc, argv, "a:d:s:h", long_options, &option_index)) != -1) {
+        switch(c) {
+            case 'a':
+                if(!optarg || is_supported_algorithm(optarg) == 0) {
+                    av_log(NULL, AV_LOG_ERROR, "No or unsupported algorithm provided (%s).\n", optarg);
+                    return 1;
+                }
+                algorithm = optarg;
+                break;
+            case 'd':
+                if(!optarg) {
+                    av_log(NULL, AV_LOG_ERROR, "-d/--data requires a path to a payload file as an argument.\n");
+                    return 1;
+                }
+                data_file = optarg;
+                break;
+            case 's':
+                if(!optarg) {
+                    av_log(NULL, AV_LOG_ERROR, "-s/--seed requires seed data (a string) as an argument.\n");
+                    return 1;
+                }
+                seed = optarg;
+                break;
+            case 'h':
+                // Print some useful help.
+                return 0;
+            default:
+                av_log(NULL, AV_LOG_ERROR, "Unknown option provided\n");
+                return 1;
+        }
+    }
+
+    char* input_file = argv[optind++];
+    char* output_file = argv[optind++];
+    if(optind != argc) {
+        av_log(NULL, AV_LOG_ERROR, "Incorrect number of arguments provided.\n"
+        "Usage:\n"
+        "%s [options] <input_video> <output_video>\n", argv[0]);
         return 1;
+    }
+
+    if(!algorithm) {
+        av_log(NULL, AV_LOG_INFO, "Algorithm not specified. Using 'mvsteg' as a default.\n");
+        algorithm = "mvsteg";
+    }
+
+    if(!data_file && strcmp(algorithm, "dumpmvs") != 0) {
+        av_log(NULL, AV_LOG_ERROR,
+               "Algorithm requires a data file with payload data, that would get embedded. "
+               "Use --data <payload_file> to specify a data file.");
+    }
+
+    av_log(NULL, AV_LOG_INFO, "Input file: %s\n", input_file);
+    av_log(NULL, AV_LOG_INFO, "Output file: %s\n", output_file);
+    av_log(NULL, AV_LOG_INFO, "Algorithm: %s\n", algorithm);
+    if(data_file) {
+        av_log(NULL, AV_LOG_INFO, "Data file: %s\n", data_file);
+    }
+
+    bool singlePass = is_single_pass(algorithm);
+    if(!singlePass) {
+        av_log(NULL, AV_LOG_INFO, "Seed: %s\n", seed);
     }
 
     // Get some information about the file.
     struct stat datafileinfo;
-    stat(argv[2], &datafileinfo);
-    int capacity = 0;
+    stat(data_file, &datafileinfo);
+    uint32_t capacity = 0;
 
-    const char* algorithm = "hidenseek";
-    int singlepass = is_single_pass(algorithm);
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
-    if(!singlepass) {
+    if(!singlePass) {
         stego_init_algorithm(algorithm);
         stego_params p = {
-                argv[2], STEGO_DUMMY_PASS, NULL
+                data_file, STEGO_DUMMY_PASS, NULL
         };
         stego_init_encoder(&p);
         av_log(NULL, AV_LOG_INFO, "Analysing the video for embedding capacity...\n");
 
-        int ret = run_embedding(argv);
+        int ret = run_embedding(input_file, output_file);
         if(ret != 0) return ret;
 
         stego_result result = stego_finalise();
         int fits = datafileinfo.st_size <= result.bytes_processed;
-        av_log(NULL, AV_LOG_INFO, "Analysed. Embedding capacity is %d byte(s)\n", result.bytes_processed);
+        av_log(NULL, AV_LOG_INFO, "Analysed. Embedding capacity is %d byte(s).\n", result.bytes_processed);
         if(!fits) {
             av_log(NULL, AV_LOG_INFO, "File can't be embedded fully, video's capacity is %d byte(s) short"
                     "using this algorithm. Terminating.\n", (int)datafileinfo.st_size - result.bytes_processed);
@@ -618,15 +695,19 @@ int main(int argc, char **argv) {
     }
 
     stego_init_algorithm(algorithm);
-    int algparams[2] = { 0, capacity };
+    struct algoptions {
+        char *seed, *seedEnd;
+        uint32_t byteCapacity;
+    };
+    struct algoptions algparams = { seed, seed + strlen(seed), capacity };
     stego_params p = {
-            argv[2], STEGO_NO_PARAMS, algparams
+            data_file, STEGO_NO_PARAMS, &algparams
     };
     stego_init_encoder(&p);
 
     av_log(NULL, AV_LOG_INFO, "Embedding...\n");
 
-    int ret = run_embedding(argv);
+    int ret = run_embedding(input_file, output_file);
     if(ret != 0) return ret;
 
     stego_result res = stego_finalise();

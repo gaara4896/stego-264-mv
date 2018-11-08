@@ -23,12 +23,14 @@
 
 #include <libavutil/motion_vector.h>
 #include <libavformat/avformat.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include "stegolib/stego_connector.h"
 
 static AVFormatContext *fmt_ctx = NULL;
 static AVCodecContext *video_dec_ctx = NULL;
 static AVStream *video_stream = NULL;
-static const char *src_filename = NULL;
+static const char *video_file = NULL;
 
 static int video_stream_idx = -1;
 static AVFrame *frame = NULL;
@@ -80,7 +82,7 @@ static int open_codec_context(int *stream_idx,
     ret = av_find_best_stream(fmt_ctx, type, -1, -1, NULL, 0);
     if (ret < 0) {
         fprintf(stderr, "Could not find %s stream in input file '%s'\n",
-                av_get_media_type_string(type), src_filename);
+                av_get_media_type_string(type), video_file);
         return ret;
     } else {
         *stream_idx = ret;
@@ -107,27 +109,112 @@ static int open_codec_context(int *stream_idx,
     return 0;
 }
 
+bool is_supported_algorithm(const char *algname) {
+    return strcmp(algname, "hidenseek") == 0
+           || strcmp(algname, "rand-hidenseek") == 0
+           || strcmp(algname, "dumpmvs") == 0
+           || strcmp(algname, "mvsteg") == 0;
+}
+
 int main(int argc, char **argv) {
     int ret = 0, got_frame;
 
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <video> <datafile>\n", argv[0]);
-        exit(1);
+    char* algorithm = NULL;
+    char* seed = "\0\0\0\0";
+    char* endPtr = NULL;
+    uint32_t capacity = 0;
+    uint32_t fileSize = 0;
+
+    static struct option long_options[] =
+    {
+        {"algorithm", required_argument, 0, 'a'},
+        {"seed", required_argument, 0, 's'},
+        {"capacity", required_argument, 0, 'c'},
+        {"file-size", required_argument, 0, 'f'},
+        {"help", no_argument, 0, 'h'}
+    };
+
+    int option_index = -1, c;
+    while((c = getopt_long(argc, argv, "a:s:c:f:h", long_options, &option_index)) != -1) {
+        switch(c) {
+            case 'a':
+                if(!optarg || is_supported_algorithm(optarg) == 0) {
+                    av_log(NULL, AV_LOG_ERROR, "No or unsupported algorithm provided (%s).\n", optarg);
+                    return 1;
+                }
+                algorithm = optarg;
+                break;
+            case 's':
+                if(!optarg) {
+                    av_log(NULL, AV_LOG_ERROR, "-s/--seed requires seed data (a string) as an argument.\n");
+                    return 1;
+                }
+                seed = optarg;
+                break;
+            case 'c':
+                if(!optarg) {
+                    av_log(NULL, AV_LOG_ERROR, "-c/--capacity requires an integer as an argument.\n");
+                    return 1;
+                }
+                capacity = atoi(optarg); // TODO: fix
+                break;
+            case 'f':
+                if(!optarg) {
+                    av_log(NULL, AV_LOG_ERROR, "-s/--seed requires seed data (a string) as an argument.\n");
+                    return 1;
+                }
+                fileSize = atoi(optarg); // TODO: fix
+                break;
+            case 'h':
+                // Print some useful help.
+                return 0;
+            default:
+                av_log(NULL, AV_LOG_ERROR, "Unknown option provided\n");
+                return 1;
+        }
     }
 
-    stego_init_algorithm("hidenseek");
-    int algparams[3] = {0, 545755, 11};
+    char* video_file = argv[optind++];
+    char* data_out_file = argv[optind++];
+    if(optind != argc) {
+        av_log(NULL, AV_LOG_ERROR, "Incorrect number of arguments provided.\n"
+                "Usage:\n"
+                "%s [options] <input_video> <output_file>\n", argv[0]);
+        return 1;
+    }
+
+    if(!algorithm) {
+        av_log(NULL, AV_LOG_INFO, "Algorithm not specified. Using 'mvsteg' as a default.\n");
+        algorithm = "mvsteg";
+    }
+
+    av_log(NULL, AV_LOG_INFO, "Video file: %s\n", video_file);
+    av_log(NULL, AV_LOG_INFO, "Output file: %s\n", data_out_file);
+    av_log(NULL, AV_LOG_INFO, "Algorithm: %s\n", algorithm);
+    if(strcmp(algorithm, "rand-hideseek") == 0 || strcmp(algorithm, "outguess1") == 0) {
+        av_log(NULL, AV_LOG_INFO, "Seed: %s\n", seed);
+        av_log(NULL, AV_LOG_INFO, "Capacity: %d\n", capacity);
+    }
+    if(fileSize != 0) {
+        av_log(NULL, AV_LOG_INFO, "Output file size: %d\n", fileSize);
+    }
+
+    stego_init_algorithm(algorithm);
+    struct algoptions {
+        char *seed, *seedEnd;
+        uint32_t byteCapacity;
+        uint32_t fileSize;
+    };
+    struct algoptions algparams = {seed, seed + strlen(seed), capacity, fileSize};
     stego_params p = {
-        argv[2], STEGO_NO_PARAMS, algparams
+        data_out_file, STEGO_NO_PARAMS, &algparams
     };
     stego_init_decoder(&p);
 
-    src_filename = argv[1];
-
     av_register_all();
 
-    if (avformat_open_input(&fmt_ctx, src_filename, NULL, NULL) < 0) {
-        fprintf(stderr, "Could not open source file %s\n", src_filename);
+    if (avformat_open_input(&fmt_ctx, video_file, NULL, NULL) < 0) {
+        fprintf(stderr, "Could not open source file %s\n", video_file);
         exit(1);
     }
 
@@ -141,7 +228,7 @@ int main(int argc, char **argv) {
         video_dec_ctx = video_stream->codec;
     }
 
-    av_dump_format(fmt_ctx, 0, src_filename, 0);
+    av_dump_format(fmt_ctx, 0, video_file, 0);
 
     if (!video_stream) {
         fprintf(stderr, "Could not find video stream in the input, aborting\n");

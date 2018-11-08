@@ -15,6 +15,12 @@ struct Pair {
     }
 };
 
+struct AlgOptions {
+    char *seed, *seedEnd;
+    uint32_t byteCapacity;
+    uint32_t fileSize;
+};
+
 class RandomisedHideSeek : public HideSeek {
 public:
     void initAsEncoder(stego_params *params);
