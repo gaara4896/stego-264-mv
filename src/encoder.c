@@ -582,7 +582,8 @@ bool is_supported_algorithm(const char *algname) {
     return strcmp(algname, "hidenseek") == 0 
         || strcmp(algname, "rand-hidenseek") == 0 
         || strcmp(algname, "dumpmvs") == 0 
-        || strcmp(algname, "mvsteg") == 0;
+        || strcmp(algname, "mvsteg") == 0
+        || strcmp(algname, "mvsteg-vuln") == 0;
 }
 
 bool is_single_pass(const char* algorithm) {
@@ -673,7 +674,10 @@ int main(int argc, char **argv) {
 
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
     if(!singlePass) {
-        stego_init_algorithm(algorithm);
+        if (stego_init_algorithm(algorithm)) {
+            fprintf(stderr, "Init algorithm fail.\n");
+            return 1;
+        }
         stego_params p = {
                 data_file, STEGO_DUMMY_PASS, NULL
         };
@@ -694,7 +698,10 @@ int main(int argc, char **argv) {
         capacity = result.bytes_processed;
     }
 
-    stego_init_algorithm(algorithm);
+    if (stego_init_algorithm(algorithm)) {
+        fprintf(stderr, "Init algorithm fail.\n");
+        return 1;
+    }
     struct algoptions {
         char *seed, *seedEnd;
         uint32_t byteCapacity;

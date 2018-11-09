@@ -113,7 +113,8 @@ bool is_supported_algorithm(const char *algname) {
     return strcmp(algname, "hidenseek") == 0
            || strcmp(algname, "rand-hidenseek") == 0
            || strcmp(algname, "dumpmvs") == 0
-           || strcmp(algname, "mvsteg") == 0;
+           || strcmp(algname, "mvsteg") == 0
+           || strcmp(algname, "mvsteg-vuln") == 0;
 }
 
 int main(int argc, char **argv) {
@@ -199,7 +200,10 @@ int main(int argc, char **argv) {
         av_log(NULL, AV_LOG_INFO, "Output file size: %d\n", fileSize);
     }
 
-    stego_init_algorithm(algorithm);
+    if (stego_init_algorithm(algorithm)) {
+        fprintf(stderr, "Init algorithm fail.\n");
+        return 1;
+    }
     struct algoptions {
         char *seed, *seedEnd;
         uint32_t byteCapacity;

@@ -6,6 +6,7 @@
 #include "algo/RandomisedHideSeek.h"
 #include "algo/DumpMVs.h"
 #include "algo/MVSteg.h"
+#include "algo/MVStegVuln.h"
 
 void Algorithm::initAsEncoder(stego_params *params) {
     datafile.open(params->filename, std::ios::in | std::ios::binary);
@@ -40,7 +41,7 @@ void stego_decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample_lo
     algorithm->decode(mvs, mbtype_table, mv_sample_log2, mb_width, mb_height, mv_stride, mb_stride);
 }
 
-void stego_init_algorithm(const char *algname) {
+int stego_init_algorithm(const char *algname) {
     if (algorithm != nullptr) {
         delete algorithm;
     }
@@ -53,7 +54,12 @@ void stego_init_algorithm(const char *algname) {
         algorithm = new DumpMVs();
     } else if (std::strcmp(algname, "mvsteg") == 0) {
         algorithm = new MVSteg();
+    } else if (std::strcmp(algname, "mvsteg-vuln") == 0) {
+        algorithm = new MVStegVuln();
+    } else {
+        return 1;
     }
+    return 0;
 }
 
 void stego_init_encoder(stego_params *params) {
