@@ -10,8 +10,8 @@
 class MVStegVuln : public MVSteg {
 protected:
     virtual void modifyMV(int16_t *mv);
-    virtual void extractFromMv(int16_t mv_x, int16_t mv_y);
-    virtual void embedIntoMv(int16_t *mv_x, int16_t *mv_y);
+    virtual void extractFromPair(int16_t mv_x, int16_t mv_y);
+    virtual void embedToPair(int16_t *mv_x, int16_t *mv_y);
 };
 
 #endif //STEGO_MVSTEGVULN_H

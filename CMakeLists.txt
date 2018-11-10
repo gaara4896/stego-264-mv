@@ -28,7 +28,7 @@ ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
             --prefix=<BINARY_DIR>
             --extra-cflags=-I<BINARY_DIR>/include
             --extra-ldflags=-L<BINARY_DIR>/lib
-            --extra-libs=-lstegolib
+            --extra-libs=-lstegolib\ -lpthread
             --enable-gpl
             --enable-nonfree
             --enable-libfdk-aac

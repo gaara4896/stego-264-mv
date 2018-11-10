@@ -1,4 +1,5 @@
 #include "RandomisedHideSeek.h"
+#include "../stego_connector.h"
 
 #include <algorithm>
 #include <iostream>
@@ -27,7 +28,7 @@ void RandomisedHideSeek::initAsEncoder(stego_params *params) {
         uint blocks = (fileSize / (BLOCKSIZE - NPAR)) + (fileSize % (BLOCKSIZE - NPAR) != 0);
         dataSize = blocks * NPAR + fileSize;
 
-        initialiseMapping(params, dataSize);
+        initialiseMapping(static_cast<AlgOptions*>(params->algParams), dataSize);
 
         // Fill the data buffer with blocks of file data & parity bytes
         data = new unsigned char[dataSize];
@@ -45,27 +46,28 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
     Algorithm::initAsDecoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
         initialize_ecc();
-        fileSize = static_cast<AlgOptions*>(params->algParams)->fileSize;
+        AlgOptions *opt = static_cast<AlgOptions*>(params->algParams);
+        fileSize = opt->fileSize;
         
         // Total size of embedded data:
         // fileSize + NPAR parity bytes for every (BLOCKSIZE - NPAR) bytes of the file
         uint blocks = (fileSize / (BLOCKSIZE - NPAR)) + (fileSize % (BLOCKSIZE - NPAR) != 0);
         dataSize = blocks * NPAR + fileSize;
         
-        initialiseMapping(params, dataSize);
+        initialiseMapping(opt, dataSize);
         
         data = new unsigned char[dataSize]();
     }
 }
 
-void RandomisedHideSeek::initialiseMapping(const stego_params *params, uint dataSize) {
+void RandomisedHideSeek::initialiseMapping(AlgOptions *algParams, uint dataSize) {
     // Build a mapping from a data bit to the particular MV
-    AlgOptions *opt = static_cast<AlgOptions*>(params->algParams);
-    uint64_t capacity =opt->byteCapacity;
+    uint64_t capacity = algParams->byteCapacity;
 
     assert(encoder || dataSize <= capacity);
 
-    std::seed_seq seed(opt->seed, opt->seedEnd);
+    std::vector<uint8_t> seedData = this->deriveBytes(SEED_SIZE, "StegoRandSeed");
+    std::seed_seq seed(seedData.begin(), seedData.end());
     std::default_random_engine rng(seed);
 
     ulong bitCapacity = ((ulong) capacity) * 8;

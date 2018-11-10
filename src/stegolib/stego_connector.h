@@ -10,12 +10,13 @@ extern "C" {
 typedef enum {
     STEGO_NO_PARAMS = 0,
     STEGO_DUMMY_PASS = 1,
-    STEGO_EXTRACT_MVS = 1
+    STEGO_ENABLE_ENCRYPTION = 2
 } stego_flags;
 
 typedef struct {
     const char *filename;
     stego_flags flags;
+    const char *password;
     void *algParams;
 } stego_params;
 

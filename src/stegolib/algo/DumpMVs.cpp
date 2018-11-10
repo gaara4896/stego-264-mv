@@ -23,3 +23,11 @@ void DumpMVs::decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample
     }
     datafile << std::endl;
 }
+
+void DumpMVs::embedToPair(int16_t *mvX, int16_t *mvY) {
+
+}
+
+void DumpMVs::extractFromPair(int16_t mvX, int16_t mvY) {
+
+}
