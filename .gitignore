@@ -38,6 +38,7 @@ CMakeFiles/
 cmake_install.cmake
 ffmpeg_proj-prefix/
 rscode_proj-prefix/
+cryptopp_proj-prefix/
 
 sample_file/
 

@@ -35,6 +35,23 @@ add_dependencies(librscode rscode_proj)
 add_dependencies(stegolib librscode)
 target_link_libraries(stegolib librscode)
 
+set(CRYPTOPP_DIR ${CMAKE_CURRENT_BINARY_DIR}/../../libs/cryptopp)
+ExternalProject_Add(
+       cryptopp_proj
+       BINARY_DIR ${CRYPTOPP_DIR}
+       SOURCE_DIR ${CRYPTOPP_DIR}
+       CONFIGURE_COMMAND ""
+       BUILD_COMMAND make -j$(nproc) static shared
+       INSTALL_COMMAND ""
+)
+
+add_library(libcryptopp STATIC IMPORTED)
+ExternalProject_Get_Property(cryptopp_proj BINARY_DIR)
+set_property(TARGET libcryptopp PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/libcryptopp.so)
+add_dependencies(libcryptopp cryptopp_proj)
+add_dependencies(stegolib libcryptopp)
+target_link_libraries(stegolib libcryptopp)
+
 #set(FFMPEG_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffmpeg)
 #set(FFMS2_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/ffms2)
 
@@ -70,21 +87,6 @@ target_link_libraries(stegolib librscode)
 #)
 
 
-#set(X264_DIR ${CMAKE_CURRENT_BINARY_DIR}/libs/x264)
-#
-#ExternalProject_Add(
-#        libx264_proj
-#        BINARY_DIR ${X264_DIR}
-#        SOURCE_DIR ${X264_DIR}
-#        URL libs/x264
-#        CONFIGURE_COMMAND env PATH="<BINARY_DIR>/bin:$ENV{PATH}" ./configure
-#        --prefix=${FFMPEG_DIR}
-#        --extra-ldflags=-ljpeg\ -lpng\ -lm
-#        --enable-shared
-#        --enable-static
-#        BUILD_COMMAND env PATH="<BINARY_DIR>/bin:$ENV{PATH}" make -j3
-#        INSTALL_COMMAND make install
-#)
 
 #add_library(libavcodec SHARED IMPORTED)
 #add_library(libavformat SHARED IMPORTED)
