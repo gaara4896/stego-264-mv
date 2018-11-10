@@ -5,7 +5,7 @@
 #ifndef STEGO_DUMPMVS_H
 #define STEGO_DUMPMVS_H
 
-#include "../algorithm.h"
+#include "../Algorithm.h"
 
 class DumpMVs : public Algorithm {
 public:
@@ -13,9 +13,12 @@ public:
     virtual void decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample_log2, int mb_width, int mb_height,
                 int mv_stride, int mb_stride);
 
-    virtual void embedToPair(int16_t *mvX, int16_t *mvY);
-    
-    virtual void extractFromPair(int16_t mvX, int16_t mvY);
+    virtual void embedIntoMv(int16_t *mvX, int16_t *mvY);
+
+    virtual void extractFromMv(int16_t mvX, int16_t mvY);
+
+private:
+    bool dimsWritten = false;
 };
 
 #endif //STEGO_DUMPMVS_H

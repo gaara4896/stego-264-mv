@@ -737,5 +737,5 @@ int main(int argc, char **argv) {
     stego_result res = stego_finalise();
     av_log(NULL, AV_LOG_INFO, "Bytes processed: %d\n", res.bytes_processed);
     av_log(NULL, AV_LOG_INFO, "Finished.\n");
-    return res.error;
+    return res.error_code;
 }

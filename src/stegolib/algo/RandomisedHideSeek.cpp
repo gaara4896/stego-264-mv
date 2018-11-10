@@ -4,7 +4,7 @@
 
 extern "C" {
 #include <rscode/ecc.h>
-#define BLOCKSIZE (8 * CryptoFile::BlockSize + NPAR)
+#define BLOCKSIZE 255
 }
 
 void RandomisedHideSeek::initAsEncoder(stego_params *params) {
@@ -19,7 +19,7 @@ void RandomisedHideSeek::initAsEncoder(stego_params *params) {
         uint blocks = (fileSize / (BLOCKSIZE - NPAR)) + (fileSize % (BLOCKSIZE - NPAR) != 0);
         dataSize = blocks * NPAR + fileSize;
 
-        initialiseMapping(static_cast<AlgOptions*>(params->algParams), dataSize);
+        initialiseMapping(static_cast<AlgOptions*>(params->alg_params), dataSize);
 
         // Fill the data buffer with blocks of file data & parity bytes
         data = new unsigned char[dataSize];
@@ -37,7 +37,7 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
     Algorithm::initAsDecoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
         initialize_ecc();
-        AlgOptions *opt = static_cast<AlgOptions*>(params->algParams);
+        AlgOptions *opt = static_cast<AlgOptions*>(params->alg_params);
         fileSize = opt->fileSize;
         
         // Total size of embedded data:
@@ -82,7 +82,7 @@ void RandomisedHideSeek::initialiseMapping(AlgOptions *algParams, uint dataSize)
     std::sort(bitToMvMapping, bitToMvMapping + bitDataSize);
 }
 
-void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
+void RandomisedHideSeek::processMvComponentEmbed(int16_t *mv) {
     if(flags & STEGO_DUMMY_PASS) {
         bits_processed++;
     } else {
@@ -92,22 +92,24 @@ void RandomisedHideSeek::embedIntoMv(int16_t *mv) {
             ulong dataBit = bitToMvMapping[index].bit;
             int bit = data[dataBit / 8] >> (dataBit % 8);
 
-            if((bit & 1) && !(*mv & 1)) (*mv)++;
-            if(!(bit & 1) && (*mv & 1)) (*mv)--;
-
-            index++;
+            bool success = HideSeek::embedIntoMvComponent(mv, bit);
+            if(success) index++;
         }
         bits_processed++;
     }
 }
 
-void RandomisedHideSeek::extractFromMv(int16_t val) {
+void RandomisedHideSeek::processMvComponentExtract(int16_t mv) {
     if(index >= 8*dataSize) return;
     if (bits_processed == bitToMvMapping[index].mv) {
         // We found a MV that was next on a list to be modified.
-        ulong dataBit = bitToMvMapping[index].bit;
-        data[dataBit / 8] |= (val & 1) << (dataBit % 8);
-        index++;
+        int bit = 0;
+        bool success = HideSeek::extractFromMvComponent(mv, &bit);
+        if(success) {
+            ulong dataBit = bitToMvMapping[index].bit;
+            data[dataBit / 8] |= (bit & 1) << (dataBit % 8);
+            index++;
+        }
     }
 
     bits_processed++;

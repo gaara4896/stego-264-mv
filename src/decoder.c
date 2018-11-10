@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
             av_log(NULL, AV_LOG_ERROR, "You must provide the resulting file size. Use -f/--file-size. \n");
             return 1;
         }
-        
+
         av_log(NULL, AV_LOG_INFO, "Password: *SET*");
         av_log(NULL, AV_LOG_INFO, "Capacity: %d\n", capacity);
     }
@@ -303,5 +303,5 @@ int main(int argc, char **argv) {
     stego_result res = stego_finalise();
     fprintf(stderr, "Bytes processed: %d\n", res.bytes_processed);
 
-    return res.error;
+    return res.error_code;
 }

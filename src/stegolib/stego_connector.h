@@ -17,12 +17,12 @@ typedef struct {
     const char *filename;
     stego_flags flags;
     const char *password;
-    void *algParams;
+    void *alg_params;
 } stego_params;
 
 typedef struct {
     unsigned int bytes_processed;
-    int error;
+    int error_code;
 } stego_result;
 
 void stego_init_encoder(stego_params *params);

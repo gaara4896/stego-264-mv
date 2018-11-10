@@ -47,7 +47,7 @@ ExternalProject_Add(
 
 add_library(libcryptopp STATIC IMPORTED)
 ExternalProject_Get_Property(cryptopp_proj BINARY_DIR)
-set_property(TARGET libcryptopp PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/libcryptopp.so)
+set_property(TARGET libcryptopp PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/libcryptopp.a)
 add_dependencies(libcryptopp cryptopp_proj)
 add_dependencies(stegolib libcryptopp)
 
