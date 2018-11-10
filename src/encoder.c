@@ -581,8 +581,7 @@ bool is_supported_algorithm(const char *algname) {
     return strcmp(algname, "hidenseek") == 0 
         || strcmp(algname, "rand-hidenseek") == 0 
         || strcmp(algname, "dumpmvs") == 0 
-        || strcmp(algname, "mvsteg") == 0
-        || strcmp(algname, "mvsteg-vuln") == 0;
+        || strcmp(algname, "mvsteg") == 0;
 }
 
 bool is_single_pass(const char* algorithm) {
@@ -590,20 +589,25 @@ bool is_single_pass(const char* algorithm) {
 }
 
 int main(int argc, char **argv) {
+    static int encryptFlag = 0;
     char* algorithm = NULL;
     char* data_file = NULL;
-    char* seed = "\0\0\0\0";
+    char* password = NULL;
     static struct option long_options[] =
         {
+            {"encrypt", no_argument, &encryptFlag, 1},
             {"algorithm", required_argument, 0, 'a'},
             {"data", required_argument, 0, 'd'},
-            {"seed", required_argument, 0, 's'},
+            {"password", required_argument, 0, 'p'},
             {"help", no_argument, 0, 'h'}
         };
 
     int option_index = -1, c;
-    while((c = getopt_long(argc, argv, "a:d:s:h", long_options, &option_index)) != -1) {
+    while((c = getopt_long(argc, argv, "a:d:p:h", long_options, &option_index)) != -1) {
         switch(c) {
+            case 0:
+                // A flag was set.
+                break;
             case 'a':
                 if(!optarg || is_supported_algorithm(optarg) == 0) {
                     av_log(NULL, AV_LOG_ERROR, "No or unsupported algorithm provided (%s).\n", optarg);
@@ -618,12 +622,12 @@ int main(int argc, char **argv) {
                 }
                 data_file = optarg;
                 break;
-            case 's':
+            case 'p':
                 if(!optarg) {
-                    av_log(NULL, AV_LOG_ERROR, "-s/--seed requires seed data (a string) as an argument.\n");
+                    av_log(NULL, AV_LOG_ERROR, "-p/--password requires seed data (a string) as an argument.\n");
                     return 1;
                 }
-                seed = optarg;
+                password = optarg;
                 break;
             case 'h':
                 // Print some useful help.
@@ -652,24 +656,37 @@ int main(int argc, char **argv) {
         av_log(NULL, AV_LOG_ERROR,
                "Algorithm requires a data file with payload data, that would get embedded. "
                "Use --data <payload_file> to specify a data file.");
+        return 1;
+    }
+
+    if (encryptFlag && !password){
+        av_log(NULL, AV_LOG_ERROR, "You must provide a password if you want to use crypto. Use -p/--password. \n");
+        return 1;
     }
 
     av_log(NULL, AV_LOG_INFO, "Input file: %s\n", input_file);
     av_log(NULL, AV_LOG_INFO, "Output file: %s\n", output_file);
     av_log(NULL, AV_LOG_INFO, "Algorithm: %s\n", algorithm);
+    av_log(NULL, AV_LOG_INFO, "Crypto: %s\n", encryptFlag? "ON" : "OFF");
     if(data_file) {
         av_log(NULL, AV_LOG_INFO, "Data file: %s\n", data_file);
     }
 
     bool singlePass = is_single_pass(algorithm);
     if(!singlePass) {
-        av_log(NULL, AV_LOG_INFO, "Seed: %s\n", seed);
+        if(!password) {
+            av_log(NULL, AV_LOG_INFO, "Password is required by the algorithm. Using default.");
+            password = "StegoDefaultPassword";
+        }
+        av_log(NULL, AV_LOG_INFO, "Password: *set*\n");
     }
 
     // Get some information about the file.
     struct stat datafileinfo;
     stat(data_file, &datafileinfo);
     uint32_t capacity = 0;
+
+    stego_flags encFlag = encryptFlag? STEGO_ENABLE_ENCRYPTION : STEGO_NO_PARAMS;
 
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
     if(!singlePass) {
@@ -678,7 +695,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         stego_params p = {
-                data_file, STEGO_DUMMY_PASS, NULL
+                data_file, STEGO_DUMMY_PASS | encFlag, password, NULL
         };
         stego_init_encoder(&p);
         av_log(NULL, AV_LOG_INFO, "Analysing the video for embedding capacity...\n");
@@ -702,12 +719,13 @@ int main(int argc, char **argv) {
         return 1;
     }
     struct algoptions {
-        char *seed, *seedEnd;
         uint32_t byteCapacity;
+        uint32_t fileSize;
     };
-    struct algoptions algparams = { seed, seed + strlen(seed), capacity };
+
+    struct algoptions algparams = { capacity, 0 };
     stego_params p = {
-            data_file, STEGO_NO_PARAMS, &algparams
+            data_file, STEGO_NO_PARAMS | encFlag, password, &algparams
     };
     stego_init_encoder(&p);
 

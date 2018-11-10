@@ -6,7 +6,7 @@ index 96634ec..704ba87 100644
  #include "wmv2.h"
  #include <limits.h>
  
-+#include <movest/movest_connector.h>
++#include <stego/stego_connector.h>
 +
  static void dct_unquantize_mpeg1_intra_c(MpegEncContext *s,
                                     int16_t *block, int n, int qscale)
@@ -16,7 +16,7 @@ index 96634ec..704ba87 100644
          int mb_x, mb_y, mbcount = 0;
  
 +        if(pict->pict_type == AV_PICTURE_TYPE_P) {
-+            movest_decode(motion_val, mv_sample_log2, mb_width, mb_height, mv_stride);
++            stego_decode(motion_val, mv_sample_log2, mb_width, mb_height, mv_stride);
 +        }
 +
          /* size is width * height * 2 * 4 where 2 is for directions and 4 is
@@ -30,7 +30,7 @@ index a6af8bd..1815a19 100644
  #include <limits.h>
  #include "sp5x.h"
  
-+#include <movest/movest_connector.h>
++#include <stego/stego_connector.h>
 +
  #define QUANT_BIAS_SHIFT 8
  
@@ -40,7 +40,7 @@ index a6af8bd..1815a19 100644
      s->header_bits= bits - s->last_bits;
  
 +    if(s->current_picture.f->pict_type == AV_PICTURE_TYPE_P) {
-+        movest_encode(s->p_mv_table, s->mb_type, s->mb_width, s->mb_height, s->mb_stride);
++        stego_encode(s->p_mv_table, s->mb_type, s->mb_width, s->mb_height, s->mb_stride);
 +    }
 +
      for(i=1; i<context_count; i++){

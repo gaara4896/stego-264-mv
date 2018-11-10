@@ -8,20 +8,33 @@
 #include "algo/RandomisedHideSeek.h"
 #include "algo/DumpMVs.h"
 #include "algo/MVSteg.h"
-#include "algo/MVStegVuln.h"
+#include "stego_connector.h"
+
+#define CRYPTO_SALT "StegoEncryption"
+#define DEFAULT_PASSWORD "StegoDefaultPassword"
 
 void Algorithm::initAsEncoder(stego_params *params) {
-    datafile.open(params->filename, std::ios::in | std::ios::binary);
-    this->flags = params->flags;
-    this->password = params->password;
-    encoder = true;
+    this->encoder = true;
+    this->initialiseAlgorithm(params);
 }
 
 void Algorithm::initAsDecoder(stego_params *params) {
-    datafile.open(params->filename, std::ios::out | std::ios::binary);
+    this->encoder = false;
+    this->initialiseAlgorithm(params);
+}
+
+void Algorithm::initialiseAlgorithm(stego_params *params) {
+    // Unpack parameters
     this->flags = params->flags;
-    this->password = password;
-    encoder = false;
+    this->password = params->password == nullptr? DEFAULT_PASSWORD : params->password;
+    auto iosFlags = std::ios::binary | ((this->encoder)? std::ios::in : std::ios::out);
+    // Set up encryption
+    if(this->flags & STEGO_ENABLE_ENCRYPTION) {
+        std::vector<uint8_t> bytes = deriveBytes(CryptoFile::KeyLength + CryptoFile::BlockSize, CRYPTO_SALT);
+        datafile = CryptoFile(params->filename, &bytes[0], &bytes[CryptoFile::KeyLength], iosFlags);
+    } else {
+        datafile = CryptoFile(params->filename, iosFlags);
+    }
 }
 
 void Algorithm::encode(int16_t (*mvs)[2], uint16_t *mb_type, int mb_width, int mb_height, int mv_stride) {
@@ -53,7 +66,7 @@ std::vector<uint8_t> Algorithm::deriveBytes(size_t numBytes, std::string salt) {
     const byte *saltPtr = reinterpret_cast<const byte*>(salt.c_str());
 
     CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA1> pbkdf2;
-    pbkdf2.DeriveKey(&derived[0], numBytes, 0, passwordPtr, this->password.length(), saltPtr, salt.length(), 64000);
+    pbkdf2.DeriveKey(&derived[0], numBytes, 0, passwordPtr, this->password.length(), saltPtr, salt.length(), 100000);
     
     return derived;
 }
@@ -64,6 +77,7 @@ stego_result Algorithm::finalise() {
     if(encoder && !datafile.eof()) {
         error = 1;
     }
+    
     datafile.close();
     return stego_result {
             uint(bits_processed / 8), error
@@ -92,8 +106,6 @@ int stego_init_algorithm(const char *algname) {
         algorithm = new DumpMVs();
     } else if (std::strcmp(algname, "mvsteg") == 0) {
         algorithm = new MVSteg();
-    } else if (std::strcmp(algname, "mvsteg-vuln") == 0) {
-        algorithm = new MVStegVuln();
     } else {
         return 1;
     }

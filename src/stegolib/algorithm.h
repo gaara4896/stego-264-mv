@@ -1,10 +1,10 @@
 #ifndef STEGO_ALGORITHM_H
 #define STEGO_ALGORITHM_H
 
-#include <fstream>
 #include <memory>
 #include <vector>
 #include "stego_connector.h"
+#include "crypto/CryptoFile.h"
 
 class Algorithm {
 public:
@@ -18,9 +18,10 @@ public:
     virtual void initAsDecoder(stego_params *params);
     virtual stego_result finalise();
 protected:
+    void initialiseAlgorithm(stego_params *params);
     std::vector<uint8_t> deriveBytes(size_t numBytes, std::string salt);
 
-    std::fstream datafile;
+    CryptoFile datafile;
     int flags = 0;
     int bits_processed = 0;
     bool encoder;

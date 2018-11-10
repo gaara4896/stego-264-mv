@@ -1,9 +1,10 @@
+#include <iostream>
 #include "HideSeek.h"
 
 void HideSeek::initAsEncoder(stego_params *params) {
     Algorithm::initAsEncoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
-        datafile.read(&symb, 1);
+        this->getDataToEmbed();
     }
 }
 
@@ -12,7 +13,9 @@ void HideSeek::initAsDecoder(stego_params *params) {
 }
 
 void HideSeek::embedToPair(int16_t *mvX, int16_t *mvY) {
+    if(stopEmbedding) return;
     embedIntoMv(mvX);
+    if(stopEmbedding) return;
     embedIntoMv(mvY);
 }
 
@@ -22,24 +25,35 @@ void HideSeek::extractFromPair(int16_t mvX, int16_t mvY) {
 }
 
 void HideSeek::embedIntoMv(int16_t *mv) {
-    int bit = symb >> index;
+    int bit = symb[index / 8] >> (index % 8);
     // Equivalent to setting the LSB of '*mv' to the one of 'bit'.
     if((bit & 1) && !(*mv & 1) && !(flags & STEGO_DUMMY_PASS)) (*mv)++;
     if(!(bit & 1) && (*mv & 1) && !(flags & STEGO_DUMMY_PASS)) (*mv)--;
     ++index;
     ++bits_processed;
-    if(index == sizeof(char) * 8) {
-        datafile.read(&symb, 1);
+
+    this->getDataToEmbed();
+}
+
+void HideSeek::extractFromMv(int16_t val) {
+    symb[index / 8] |= (val & 1) << (index % 8);
+    index++;
+    bits_processed++;
+    this->writeRecoveredData();
+}
+
+void HideSeek::getDataToEmbed() {
+    if(index == indexLimit) {
+        indexLimit = (uint)datafile.read(symb, sizeof(symb)) * 8;
+        if(indexLimit == 0) stopEmbedding = true;
         index = 0;
     }
 }
 
-void HideSeek::extractFromMv(int16_t val) {
-    symb |= (val & 1) << index;
-    index++;
-    if(index == sizeof(char) * 8) {
-        datafile.write(&symb, 1);
-        symb = 0;
+void HideSeek::writeRecoveredData() {
+    if(index == sizeof(symb) * 8) {
+        datafile.write(symb, sizeof(symb));
+        std::fill(symb, symb + sizeof(symb), 0);
         index = 0;
     }
 }
