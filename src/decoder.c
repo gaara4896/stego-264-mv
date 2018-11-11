@@ -221,21 +221,20 @@ int main(int argc, char **argv) {
             case 'h':
                 av_log(NULL, AV_LOG_INFO, "STEGO Decoder, (c) 2018\n"
                         "Usage: stego_dec -a <algorithm> [--decrypt, -p <password>, -f <file_size>, -c <capacity>]"
-                                          "<input_video> <output_file>\n"
+                                          " <input_video> <output_file>\n"
                         "\nCommand line arguments:\n"
                         " --decrypt        Perform decryption of the data prior to embedding\n"
                         " -a/--algorithm   An embedding algorithm to use\n"
                         " -p/--password    An encryption password to use\n"
                         " -c/--capacity    The embedding capacity of a video that was reported during the embedding\n"
-                        "                  ('rand-hidenseek'/'outguess1' only)\n"
+                        "                  ('rand-hidenseek' only)\n"
                         " -f/--file-size   The size of the payload\n"
-                        "                  ('rand-hidenseek'/'outguess1' only)\n"
+                        "                  ('rand-hidenseek' only)\n"
                         " -h/--help        Print this help message\n"
                         "\nAvailable algorithm options:\n"
                         " 'dumpmvs' (writes motion vectors to the output file)\n"
-                        " 'hidenseek' 'msteg' 'f3' 'f4'\n"
-                        " 'mvsteg' 'xualg'\n"
-                        " 'rand-hidenseek' 'outguess1'\n");
+                        " 'hidenseek' 'rand-hidenseek'\n"
+                        " 'mvsteg'\n");
                 return 0;
             default:
                 av_log(NULL, AV_LOG_ERROR, "Unknown option provided: %c\n", c);
