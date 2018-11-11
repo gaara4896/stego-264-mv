@@ -1,7 +1,3 @@
-//
-// Created by el on 03/01/16.
-//
-
 #ifndef STEGO_MVSTEG_H
 #define STEGO_MVSTEG_H
 

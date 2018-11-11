@@ -34,7 +34,7 @@ ExternalProject_Add(ffmpeg_proj DEPENDS stegolib
             --enable-libfdk-aac
             --enable-libmp3lame
             --disable-doc
-            # --disable-pthreads
+            --disable-pthreads
             --disable-programs
             --enable-shared
             --enable-static

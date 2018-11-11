@@ -16,6 +16,7 @@ public:
 
     virtual void initAsEncoder(stego_params *params);
     virtual void initAsDecoder(stego_params *params);
+    virtual unsigned int computeEmbeddingSize(unsigned int dataSize);
     virtual stego_result finalise();
     virtual ~Algorithm() {};
 protected:
@@ -24,11 +25,9 @@ protected:
 
     CryptoFile datafile;
     int flags = 0;
-    int bits_processed = 0;
+    ulong bits_processed = 0;
     bool encoder;
     std::string password;
 };
-
-// static Algorithm *algorithm;
 
 #endif //STEGO_ALGORITHM_H

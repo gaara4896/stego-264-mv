@@ -19,7 +19,7 @@ void HideSeek::embedIntoMv(int16_t *mvX, int16_t *mvY) {
 
 void HideSeek::processMvComponentEmbed(int16_t *mv) {
     if(stopEmbedding) return;
-    bool success = embedIntoMvComponent(mv, symb[index / 8] >> (index % 8));
+    bool success = embedIntoMvComponent(mv, (symb[index / 8] >> (index % 8)) & 1);
     if(success) {
         ++index;
         ++bits_processed;
@@ -70,4 +70,11 @@ void HideSeek::writeRecoveredData() {
         std::fill(symb, symb + sizeof(symb), 0);
         index = 0;
     }
+}
+
+stego_result HideSeek::finalise() {
+    if(!encoder && index > 0 && index / 8 > 0) {
+        datafile.write(symb, index / 8);
+    }
+    return Algorithm::finalise();
 }

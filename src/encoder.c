@@ -84,7 +84,6 @@ static int open_input_file(const char *filename) {
         }
     }
 
-    av_dump_format(ifmt_ctx, 0, filename, 0);
     return 0;
 }
 
@@ -169,7 +168,6 @@ static int open_output_file(const char *filename) {
             enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     }
-    // av_dump_format(ofmt_ctx, 0, filename, 1);
 
     if (!(ofmt_ctx->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&ofmt_ctx->pb, filename, AVIO_FLAG_WRITE);
@@ -396,7 +394,6 @@ static int encode_write_frame(AVFrame *filt_frame, unsigned int stream_index, in
                          ofmt_ctx->streams[stream_index]->codec->time_base,
                          ofmt_ctx->streams[stream_index]->time_base);
 
-    av_log(NULL, AV_LOG_DEBUG, "Muxing frame\n");
     /* mux encoded frame */
     ret = av_interleaved_write_frame(ofmt_ctx, &enc_pkt);
     return ret;
@@ -532,7 +529,7 @@ int run_embedding(char *input_file, char *output_file) {
             if (ret < 0)
                 goto end;
         }
-        av_free_packet(&packet);
+        av_packet_unref(&packet);
     }
 
     /* flush filters and encoders */
@@ -556,7 +553,7 @@ int run_embedding(char *input_file, char *output_file) {
 
     av_write_trailer(ofmt_ctx);
     end:
-    av_free_packet(&packet);
+    av_packet_unref(&packet);
     av_frame_free(&frame);
     for (i = 0; i < ifmt_ctx->nb_streams; i++) {
         avcodec_close(ifmt_ctx->streams[i]->codec);
@@ -574,7 +571,7 @@ int run_embedding(char *input_file, char *output_file) {
     if (ret < 0)
         av_log(NULL, AV_LOG_ERROR, "Error occurred: %s\n", av_err2str(ret));
 
-    return ret ? 1 : 0;
+    return (ret < 0)? 1 : 0;
 }
 
 bool is_supported_algorithm(const char *algname) {
@@ -588,18 +585,21 @@ bool is_single_pass(const char* algorithm) {
     return strcmp(algorithm, "rand-hidenseek") != 0;
 }
 
-int main(int argc, char **argv) {
-    static int encryptFlag = 0;
-    char* algorithm = NULL;
-    char* data_file = NULL;
-    char* password = NULL;
+int main(int argc, char **argv)
+{
+    static int encrypt_flag = 0;
+    char *algorithm = NULL;
+    char *data_file = NULL;
+    char *password = NULL;
+
+    // User option parser
     static struct option long_options[] =
         {
-            {"encrypt", no_argument, &encryptFlag, 1},
-            {"algorithm", required_argument, 0, 'a'},
-            {"data", required_argument, 0, 'd'},
-            {"password", required_argument, 0, 'p'},
-            {"help", no_argument, 0, 'h'}
+            {"encrypt", no_argument, &encrypt_flag, 1},
+            {"algorithm", required_argument, 0,     'a'},
+            {"data", required_argument, 0,          'd'},
+            {"password", required_argument, 0,      'p'},
+            {"help", no_argument, 0,                'h'}
         };
 
     int option_index = -1, c;
@@ -630,7 +630,19 @@ int main(int argc, char **argv) {
                 password = optarg;
                 break;
             case 'h':
-                // Print some useful help.
+                av_log(NULL, AV_LOG_INFO, "STEGO Encoder, (c) 2018\n"
+                "Usage: stego_enc -a <algorithm> -d <data_file> [--encrypt, -p <password>] <input_video> <output_video>\n"
+                        "\nCommand line arguments:\n"
+                        " --encrypt        Perform encryption of the data prior to embedding\n"
+                        " -a/--algorithm   An embedding algorithm to use\n"
+                        " -d/--data        Path to a file, containing the payload\n"
+                        " -p/--password    An encryption password to use\n"
+                        " -h/--help        Print this help message\n"
+                       "\nAvailable algorithm options:\n"
+                        " 'dumpmvs' (does not embed data)\n"
+                        " 'hidenseek' 'rand-hidenseek'\n"
+                        " 'mvsteg'\n"
+                );
                 return 0;
             default:
                 av_log(NULL, AV_LOG_ERROR, "Unknown option provided\n");
@@ -638,12 +650,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    char* input_file = argv[optind++];
-    char* output_file = argv[optind++];
+    char *input_file = argv[optind++];
+    char *output_file = argv[optind++];
     if(optind != argc) {
         av_log(NULL, AV_LOG_ERROR, "Incorrect number of arguments provided.\n"
-        "Usage:\n"
-        "%s [options] <input_video> <output_video>\n", argv[0]);
+        "Usage: stego_enc -a <algorithm> -d <data_file> [--encrypt, -p <password>] <input_video> <output_video>\n"
+        "Use --help for more information.\n");
         return 1;
     }
 
@@ -659,7 +671,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (encryptFlag && !password){
+    if (encrypt_flag && !password){
         av_log(NULL, AV_LOG_ERROR, "You must provide a password if you want to use crypto. Use -p/--password. \n");
         return 1;
     }
@@ -667,7 +679,7 @@ int main(int argc, char **argv) {
     av_log(NULL, AV_LOG_INFO, "Input file: %s\n", input_file);
     av_log(NULL, AV_LOG_INFO, "Output file: %s\n", output_file);
     av_log(NULL, AV_LOG_INFO, "Algorithm: %s\n", algorithm);
-    av_log(NULL, AV_LOG_INFO, "Crypto: %s\n", encryptFlag? "ON" : "OFF");
+    av_log(NULL, AV_LOG_INFO, "Crypto: %s\n", encrypt_flag ? "ON" : "OFF");
     if(data_file) {
         av_log(NULL, AV_LOG_INFO, "Data file: %s\n", data_file);
     }
@@ -675,67 +687,71 @@ int main(int argc, char **argv) {
     bool singlePass = is_single_pass(algorithm);
     if(!singlePass) {
         if(!password) {
-            av_log(NULL, AV_LOG_INFO, "Password is required by the algorithm. Using default.");
+            av_log(NULL, AV_LOG_INFO, "Password is required by the algorithm. Using default.\n");
             password = "StegoDefaultPassword";
         }
         av_log(NULL, AV_LOG_INFO, "Password: *set*\n");
     }
 
-    // Get some information about the file.
+    // Get file size information about the file.
     struct stat datafileinfo;
     stat(data_file, &datafileinfo);
     uint32_t capacity = 0;
 
-    stego_flags encFlag = encryptFlag? STEGO_ENABLE_ENCRYPTION : STEGO_NO_PARAMS;
+    stego_flags encFlag = encrypt_flag ? STEGO_ENABLE_ENCRYPTION : STEGO_NO_PARAMS;
 
     // Step 1. Run a dummy pass to determine embedding capacity, if the algorithm is two-pass.
     if(!singlePass) {
-        if (stego_init_algorithm(algorithm)) {
-            fprintf(stderr, "Init algorithm fail.\n");
-            return 1;
-        }
         stego_params p = {
-                data_file, STEGO_DUMMY_PASS | encFlag, password, NULL
+                data_file, STEGO_DUMMY_PASS | encFlag, password
         };
-        stego_init_encoder(&p);
+        stego_init_encoder(algorithm, &p, NULL);
         av_log(NULL, AV_LOG_INFO, "Analysing the video for embedding capacity...\n");
 
+        unsigned int data_size = stego_get_embedded_data_size((unsigned int)(datafileinfo.st_size));
         int ret = run_embedding(input_file, output_file);
         if(ret != 0) return ret;
 
         stego_result result = stego_finalise();
-        int fits = datafileinfo.st_size <= result.bytes_processed;
+        bool fits = data_size < result.bytes_processed;
         av_log(NULL, AV_LOG_INFO, "Analysed. Embedding capacity is %d byte(s).\n", result.bytes_processed);
         if(!fits) {
             av_log(NULL, AV_LOG_INFO, "File can't be embedded fully, video's capacity is %d byte(s) short"
-                    "using this algorithm. Terminating.\n", (int)datafileinfo.st_size - result.bytes_processed);
+                    " using this algorithm. Terminating.\n", (int)datafileinfo.st_size - result.bytes_processed);
             return 1;
         }
         capacity = result.bytes_processed;
     }
 
-    if (stego_init_algorithm(algorithm)) {
-        fprintf(stderr, "Init algorithm fail.\n");
-        return 1;
-    }
-    struct algoptions {
-        uint32_t byteCapacity;
-        uint32_t fileSize;
+    // Step 2. Do the actual embedding.
+    struct alg_options {
+        uint32_t byte_capacity;
+        uint32_t file_size; // Optional for encoder
     };
 
-    struct algoptions algparams = { capacity, 0 };
+    struct alg_options algparams = { capacity, (uint32_t)datafileinfo.st_size };
+
     stego_params p = {
-            data_file, STEGO_NO_PARAMS | encFlag, password, &algparams
+            data_file, STEGO_NO_PARAMS | encFlag, password
     };
-    stego_init_encoder(&p);
+    stego_init_encoder(algorithm, &p, &algparams);
 
-    av_log(NULL, AV_LOG_INFO, "Embedding...\n");
+    av_log(NULL, AV_LOG_INFO, "Embedding...\n ");
 
     int ret = run_embedding(input_file, output_file);
     if(ret != 0) return ret;
 
     stego_result res = stego_finalise();
     av_log(NULL, AV_LOG_INFO, "Bytes processed: %d\n", res.bytes_processed);
+    if(res.error_code == 1) {
+        av_log(NULL, AV_LOG_INFO, "Embedding likely failed: file too big. "
+                                  "Only files up to about %d bytes fit.\n", res.bytes_processed);
+    }
+    if(!singlePass) { //
+        av_log(NULL, AV_LOG_INFO, "Tell the decoding party to specify:\n"
+                                  " * File size: %d\n * Embedding capacity: %d\n\n",
+               algparams.file_size, algparams.byte_capacity);
+    }
     av_log(NULL, AV_LOG_INFO, "Finished.\n");
     return res.error_code;
 }

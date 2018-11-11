@@ -1,17 +1,12 @@
-//
-// Created by el on 01/01/16.
-//
-
 #include <iostream>
-#include "DumpMVs.h"
+#include "DumpMvs.h"
 
-void DumpMVs::encode(int16_t (*)[2], uint16_t *, int , int , int ) {
-    std::cerr << "This algorithm does not support encode mode." << std::endl
-              << "Run decoder application to dump MVs." << std::endl;
+void DumpMvs::encode(int16_t (*)[2], uint16_t *, int, int, int) {
+    // Dummy Pass
 }
 
-void DumpMVs::decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample_log2, int mb_width, int mb_height,
-                      int mv_stride, int mb_stride) {
+void DumpMvs::decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample_log2, int mb_width, int mb_height,
+                     int mv_stride, int mb_stride) {
     auto &stream = datafile.exposeStream();
     if(!dimsWritten) {
         stream << mb_height << " " << mb_width << std::endl;
@@ -27,10 +22,8 @@ void DumpMVs::decode(int16_t (*mvs[2])[2], uint32_t *mbtype_table, int mv_sample
     }
 }
 
-void DumpMVs::embedIntoMv(int16_t *, int16_t *) {
-
+void DumpMvs::embedIntoMv(int16_t *, int16_t *) {
 }
 
-void DumpMVs::extractFromMv(int16_t , int16_t ) {
-
+void DumpMvs::extractFromMv(int16_t, int16_t) {
 }

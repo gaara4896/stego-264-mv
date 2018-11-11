@@ -1,10 +1,18 @@
+#include <algorithm>
+#include <iostream>
 #include "RandomisedHideSeek.h"
-
-#include <assert.h>
 
 extern "C" {
 #include <rscode/ecc.h>
 #define BLOCKSIZE 255
+}
+
+RandomisedHideSeek::RandomisedHideSeek(RandomisedHideSeek::AlgOptions *algOptions) {
+    if(algOptions == nullptr) {
+        this->opt = AlgOptions{0, 0};
+    } else {
+        this->opt = *algOptions;
+    }
 }
 
 void RandomisedHideSeek::initAsEncoder(stego_params *params) {
@@ -12,22 +20,20 @@ void RandomisedHideSeek::initAsEncoder(stego_params *params) {
     if(!(flags & STEGO_DUMMY_PASS)) {
         initialize_ecc();
 
-        fileSize = datafile.remainingData();
+        fileSize = opt.fileSize != 0? opt.fileSize : (uint)datafile.remainingData();
+        dataSize = eccDataInflation(fileSize);
 
-        // Total size of embedded data:
-        // fileSize + NPAR parity bytes for every (BLOCKSIZE - NPAR) bytes of the file
-        uint blocks = (fileSize / (BLOCKSIZE - NPAR)) + (fileSize % (BLOCKSIZE - NPAR) != 0);
-        dataSize = blocks * NPAR + fileSize;
-
-        initialiseMapping(static_cast<AlgOptions*>(params->alg_params), dataSize);
+        initialiseMapping(dataSize);
 
         // Fill the data buffer with blocks of file data & parity bytes
-        data = new unsigned char[dataSize];
+        data.resize(dataSize);
         unsigned char fileData[BLOCKSIZE - NPAR];
-        uint currentPos = 0;
-        while(!datafile.eof() && currentPos < dataSize) {
-            auto read = datafile.read(&fileData[0], BLOCKSIZE - NPAR);
-            encode_data(fileData, read, data + currentPos);
+        uint currentPos = 0, fileRead = 0;
+        while(fileRead < fileSize && currentPos < dataSize) {
+            uint toRead = std::min(fileSize - fileRead, (uint)BLOCKSIZE - NPAR);
+            int read = (int)datafile.read(&fileData[0], toRead);
+            encode_data(fileData, read, &data[currentPos]);
+            fileRead += read;
             currentPos += read + NPAR;
         }
     }
@@ -37,23 +43,18 @@ void RandomisedHideSeek::initAsDecoder(stego_params *params) {
     Algorithm::initAsDecoder(params);
     if(!(flags & STEGO_DUMMY_PASS)) {
         initialize_ecc();
-        AlgOptions *opt = static_cast<AlgOptions*>(params->alg_params);
-        fileSize = opt->fileSize;
-        
-        // Total size of embedded data:
-        // fileSize + NPAR parity bytes for every (BLOCKSIZE - NPAR) bytes of the file
-        uint blocks = (fileSize / (BLOCKSIZE - NPAR)) + (fileSize % (BLOCKSIZE - NPAR) != 0);
-        dataSize = blocks * NPAR + fileSize;
-        
-        initialiseMapping(opt, dataSize);
-        
-        data = new unsigned char[dataSize]();
+        fileSize = opt.fileSize;
+        dataSize = eccDataInflation(fileSize);
+
+        initialiseMapping(dataSize);
+
+        data.resize(dataSize, 0);
     }
 }
 
-void RandomisedHideSeek::initialiseMapping(AlgOptions *algParams, uint dataSize) {
+void RandomisedHideSeek::initialiseMapping(uint dataSize) {
     // Build a mapping from a data bit to the particular MV
-    uint64_t capacity = algParams->byteCapacity;
+    uint64_t capacity = opt.byteCapacity;
 
     assert(encoder || dataSize <= capacity);
 
@@ -62,9 +63,9 @@ void RandomisedHideSeek::initialiseMapping(AlgOptions *algParams, uint dataSize)
     std::default_random_engine rng(seed);
 
     ulong bitCapacity = ((ulong) capacity) * 8;
-    std::uniform_int_distribution<ulong> dist(0, bitCapacity);
+    std::uniform_int_distribution<ulong> dist(0, bitCapacity-1);
     ulong bitDataSize = ((ulong) dataSize) * 8;
-    bitToMvMapping = new Pair[bitDataSize];
+    bitToMvMapping.resize(bitDataSize);
 
     std::vector<bool> used(bitCapacity, false);
 
@@ -79,7 +80,7 @@ void RandomisedHideSeek::initialiseMapping(AlgOptions *algParams, uint dataSize)
     }
 
     // Sort the mapping in increasing order of MVs, for sequential embedding
-    std::sort(bitToMvMapping, bitToMvMapping + bitDataSize);
+    std::sort(bitToMvMapping.begin(), bitToMvMapping.end());
 }
 
 void RandomisedHideSeek::processMvComponentEmbed(int16_t *mv) {
@@ -116,19 +117,35 @@ void RandomisedHideSeek::processMvComponentExtract(int16_t mv) {
 }
 
 stego_result RandomisedHideSeek::finalise() {
-    if(!encoder && !(flags & STEGO_DUMMY_PASS)) {
-        uint currentPos = 0;
-        while(currentPos < dataSize) {
-            uint blockSize = std::min((uint)BLOCKSIZE, dataSize - currentPos);
-            decode_data(data + currentPos, blockSize);
-            if (check_syndrome() != 0) {
-                correct_errors_erasures(data + currentPos, blockSize, 0, NULL);
+    if(!(flags & STEGO_DUMMY_PASS)) {
+        if(!encoder) {
+            uint currentPos = 0;
+            while(currentPos < dataSize) {
+                uint blockSize = std::min((uint)BLOCKSIZE, dataSize - currentPos);
+                decode_data(&data[currentPos], blockSize);
+                if (check_syndrome() != 0) {
+                    correct_errors_erasures(&data[currentPos], blockSize, 0, NULL);
+                }
+                datafile.write(&data[currentPos], blockSize - NPAR);
+                currentPos += blockSize;
             }
-            datafile.write(&data[0] + currentPos, blockSize - NPAR);
-            currentPos += blockSize;
+            datafile.close();
         }
     }
-    delete data;
-    delete bitToMvMapping;
-    return Algorithm::finalise();
+
+    return stego_result {
+            uint(bits_processed / 8), 0
+    };
+}
+
+unsigned int RandomisedHideSeek::computeEmbeddingSize(unsigned int dataSize) {
+    uint fileSize = Algorithm::computeEmbeddingSize(dataSize);
+    return eccDataInflation(fileSize);
+}
+
+unsigned int RandomisedHideSeek::eccDataInflation(unsigned int size) {
+    // Total size of embedded data:
+    // size + NPAR parity bytes for every (BLOCKSIZE - NPAR) bytes of the file
+    uint blocks = (size / (BLOCKSIZE - NPAR)) + (size % (BLOCKSIZE - NPAR) != 0);
+    return blocks * NPAR + size;
 }

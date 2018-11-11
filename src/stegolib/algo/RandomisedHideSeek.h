@@ -5,8 +5,13 @@
 #include "HideSeek.h"
 #include <random>
 
-#define SEED_SIZE 16
+#define SEED_SIZE 16 // Number of bytes to be extracted from the password for PRNG seed.
 
+/**
+ * Randomised Hide & Seek algorithm.
+ * An implementation of Hide & Seek algorithm, which spreads
+ * the payload data uniformly across the motion vector data.
+ */
 class RandomisedHideSeek : public HideSeek {
 public:
     struct AlgOptions {
@@ -14,8 +19,11 @@ public:
         uint32_t fileSize; // Decoder only
     };
 
+    RandomisedHideSeek(AlgOptions *algOptions);
+
     void initAsEncoder(stego_params *params);
     void initAsDecoder(stego_params *params);
+    unsigned int computeEmbeddingSize(unsigned int dataSize);
     stego_result finalise();
 
 protected:
@@ -34,10 +42,12 @@ private:
     };
 
     uint fileSize, dataSize;
-    unsigned char *data;
-    Pair *bitToMvMapping;
+    std::vector<uint8_t> data;
+    std::vector<Pair> bitToMvMapping;
+    AlgOptions opt;
 
-    void initialiseMapping(AlgOptions *algParams, uint dataSize);
+    void initialiseMapping(uint dataSize);
+    unsigned int eccDataInflation(unsigned int dataSize);
 };
 
 
